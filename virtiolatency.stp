@@ -1,0 +1,38 @@
+#!/usr/bin/env stap
+# virtiolatency.stp
+#
+#the probe points optional because some architectures are missing them (for exampl cris)
+#
+
+global time, latencytimes,queues
+
+probe qemu.system.x86_64.virtio_queue_notify {
+    time[vdev] = gettimeofday_us()
+    queues = n
+}
+
+probe qemu.system.x86_64.virtio_notify {
+    t = gettimeofday_us()
+    s = time[vdev]
+    if (s > 0 && n >= 0) {
+        n = queues
+        latencytimes[vdev, n] <<< (t-s)
+        delete time
+        delete queues
+    }
+}
+
+probe timer.sec(5) {
+    printf("\n<begin record>\n")
+    printf("timestamp, microsec, %d, %s\n", gettimeofday_us(), tz_ctime(gettimeofday_s()))
+    printf("Virtio Latency\n")
+    printf("datasource, systemtap\n")
+    foreach ([d, n] in latencytimes) {
+        if(@count(latencytimes[d, n]) >0) {
+            printf("virtio dev %x virtio queue is %d\n", d,n)
+            println(@hist_log(latencytimes[d, n]))
+        }
+    }
+
+    printf("\n<end record>\n")
+}
