@@ -1,0 +1,13 @@
+#! /usr/bin/env stap
+#
+#Sometime we always know who is reading or writing a specific file
+#The script can help us.
+#
+#
+
+probe vfs.write, vfs.read {
+
+    if (dev == MKDEV($1, $2) && ino == $3)
+        printf("%s(%d) %s 0x%x/%u\n",
+              execname(), pid(), probefunc(), dev, ino)
+}
